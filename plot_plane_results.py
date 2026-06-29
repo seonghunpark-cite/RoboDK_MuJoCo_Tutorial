@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 
-RESULT_CSV = "./plate_virtual_ft_results.csv"
-SUMMARY_CSV = "./plate_virtual_ft_summary.csv"
+RESULT_CSV = "./plate_virtual_ft_results_gaussian_transmission_130_150.csv"
+SUMMARY_CSV = "./plate_virtual_ft_summary_gaussian_transmission_130_150.csv"
 
-OUT_ERROR_BAR = "./plate_layout_error_bar.png"
-OUT_ERROR_BOX = "./plate_layout_error_box.png"
-OUT_FORCE_DIST = "./plate_force_distribution.png"
-OUT_CONTACT_SCATTER = "./plate_contact_estimation_scatter.png"
+OUT_ERROR_BAR = "./plate_layout_error_bar_transmission_130_150.png"
+OUT_ERROR_BOX = "./plate_layout_error_box_transmission_130_150.png"
+OUT_FORCE_DIST = "./plate_force_distribution_transmission_130_150.png"
+OUT_CONTACT_SCATTER = "./plate_contact_estimation_scatter_transmission_130_150.png"
 
 
 def main():
