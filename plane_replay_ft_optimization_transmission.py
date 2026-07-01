@@ -14,8 +14,8 @@ import numpy as np
 MODEL_PATH = "./assets/fairino_description/urdf/fairino5_v6_converted_plate.xml"
 CSV_PATH = "./robodk_press_targets_plane.csv"
 
-RESULT_CSV = "./plate_virtual_ft_results_gaussian_transmission_130_150.csv"
-SUMMARY_CSV = "./plate_virtual_ft_summary_gaussian_transmission_130_150.csv"
+RESULT_CSV = "./transmission model 70_150/plate_virtual_ft_results_gaussian_transmission_70_150.csv"
+SUMMARY_CSV = "./transmission model 70_150/plate_virtual_ft_summary_gaussian_transmission_70_150.csv"
 
 PLATE_WORLD_CENTER = np.array([0.45, 0.0, 0.05])
 PLATE_TO_WORLD_R = np.eye(3)
@@ -41,13 +41,13 @@ def square_layout(offset):
     ], dtype=float)
 
 
-# LAYOUTS = {
-#     "corner_150": square_layout(0.150),
-#     "inset_130": square_layout(0.130),
-#     "inset_110": square_layout(0.110),
-#     "inset_090": square_layout(0.090),
-#     "inset_070": square_layout(0.070),
-# }
+LAYOUTS = {
+    "corner_150": square_layout(0.150),
+    "inset_130": square_layout(0.130),
+    "inset_110": square_layout(0.110),
+    "inset_090": square_layout(0.090),
+    "inset_070": square_layout(0.070),
+}
 
 # LAYOUTS = {
 #     "inset_070": square_layout(0.070),
@@ -61,13 +61,13 @@ def square_layout(offset):
 #     "inset_110": square_layout(0.110),
 # }
 
-LAYOUTS = {
-    "inset_130": square_layout(0.130),
-    "inset_135": square_layout(0.135),
-    "inset_140": square_layout(0.140),
-    "inset_145": square_layout(0.145),
-    "corner_150": square_layout(0.150),
-}
+# LAYOUTS = {
+#     "inset_130": square_layout(0.130),
+#     "inset_135": square_layout(0.135),
+#     "inset_140": square_layout(0.140),
+#     "inset_145": square_layout(0.145),
+#     "corner_150": square_layout(0.150),
+# }
 
 # =====================================================
 # More realistic virtual sensor model
@@ -387,6 +387,9 @@ def save_results(result_rows):
         print("No results to save.")
         return
 
+    Path(RESULT_CSV).parent.mkdir(parents=True, exist_ok=True)
+    Path(SUMMARY_CSV).parent.mkdir(parents=True, exist_ok=True)
+
     with open(RESULT_CSV, "w", newline="", encoding="utf-8") as fcsv:
         writer = csv.writer(fcsv)
         writer.writerow([
@@ -410,12 +413,18 @@ def save_results(result_rows):
     for row in result_rows:
         layout = row[0]
         sensor_id = row[2]
-        error = row[-1]
-
+        error = row[-4]
+        transmission_efficiency = row[-1]
         if sensor_id != 1:
             continue
 
-        summary.setdefault(layout, []).append(error)
+        if layout not in summary:
+            summary[layout] = {
+                "errors": [],
+                "transmission_efficiency": [],
+            }
+        summary[layout]["errors"].append(error)
+        summary[layout]["transmission_efficiency"].append(transmission_efficiency)
 
     with open(SUMMARY_CSV, "w", newline="", encoding="utf-8") as fcsv:
         writer = csv.writer(fcsv)
@@ -425,6 +434,7 @@ def save_results(result_rows):
             "mean_error_mm",
             "rmse_error_mm",
             "max_error_mm",
+            "average_transmission_efficiency",
         ])
 
         print("")
@@ -432,11 +442,13 @@ def save_results(result_rows):
         print("Summary")
         print("=" * 70)
 
-        for layout, errors in summary.items():
-            errors = np.array(errors, dtype=float)
+        for layout, data in summary.items():
+            errors = np.array(data["errors"], dtype=float)
             mean = float(np.mean(errors))
             rmse = float(math.sqrt(np.mean(errors ** 2)))
             max_err = float(np.max(errors))
+            tr_eff = np.array(data["transmission_efficiency"], dtype=float)
+            mean_tr_eff = float(np.mean(tr_eff))
 
             writer.writerow([
                 layout,
@@ -444,13 +456,15 @@ def save_results(result_rows):
                 mean,
                 rmse,
                 max_err,
+                mean_tr_eff
             ])
 
             print(
                 f"{layout:>10s} | "
                 f"mean={mean:8.3f} mm | "
                 f"rmse={rmse:8.3f} mm | "
-                f"max={max_err:8.3f} mm"
+                f"max={max_err:8.3f} mm | "
+                f"transmission_eff={mean_tr_eff:6.3f}"
             )
 
     print("")
