@@ -10,9 +10,9 @@ from scipy.optimize import least_squares
 # =====================================================
 # Paths
 # =====================================================
-IN_CSV = "./random_line_push_waypoints/3666223592/mujoco_random_line_results/mujoco_random_line_ft.csv"
+IN_CSV = "./random_line_push_waypoints/3661073676/mujoco_random_line_results/mujoco_random_line_ft.csv"
 
-OUT_DIR = Path("./random_line_push_waypoints/3666223592/estimated_contact_force_results")
+OUT_DIR = Path("./random_line_push_waypoints/3661073676/estimated_contact_force_results")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 OUT_CSV = OUT_DIR / "estimated_contact_force.csv"
@@ -35,6 +35,10 @@ SENSOR_GAIN = np.array([1.00, 1.00, 1.00, 1.00, 1.00], dtype=float)
 FORCE_MIN = 0.0
 FORCE_MAX = 35.0
 
+MIN_VALID_FZ_SUM_N = 0.05
+PRIOR_XY_WEIGHT = 5.0
+PRIOR_FORCE_WEIGHT = 0.0
+MAX_XY_STEP_M = 0.100
 
 # =====================================================
 # Sensor layout
@@ -134,7 +138,7 @@ def measured_matrix(group):
     ]].to_numpy(dtype=float)
 
 
-def residual(params, measured_ft):
+def residual(params, measured_ft, prev_guess=None):
     x, y, force_n = params
 
     contact = np.array([x, y, 0.0], dtype=float)
@@ -146,44 +150,77 @@ def residual(params, measured_ft):
         force=force,
     )
 
-    # force and torque have different units/scales.
-    # torque scale is amplified so it contributes to the optimization.
     force_res = pred_ft[:, 0:3] - measured_ft[:, 0:3]
     torque_res = (pred_ft[:, 3:6] - measured_ft[:, 3:6]) * 50.0
 
-    return np.concatenate([
-        force_res.reshape(-1),
-        torque_res.reshape(-1),
-    ])
+    res = [
+        *force_res.reshape(-1),
+        *torque_res.reshape(-1),
+    ]
+
+    # 이전 추정값과 너무 멀어지지 않도록 연속성 제약 추가
+    if prev_guess is not None:
+        res.extend(((params[0:2] - prev_guess[0:2]) * PRIOR_XY_WEIGHT).tolist())
+
+    return np.array(res, dtype=float)
 
 
 def estimate_one_sample(group, prev_guess=None):
     measured_ft = measured_matrix(group)
 
+    signal_level = float(np.sum(np.abs(measured_ft[:, 2])))
+
+    # 신호가 너무 작으면 위치를 새로 추정하지 않고 이전 위치 유지
+    if signal_level < MIN_VALID_FZ_SUM_N and prev_guess is not None:
+        x_prev, y_prev, _ = prev_guess
+
+        f_est = estimate_force_given_xy(
+            measured_ft=measured_ft,
+            x=x_prev,
+            y=y_prev,
+        )
+
+        est = np.array([x_prev, y_prev, f_est], dtype=float)
+        return est, 0.0, True
+
     if prev_guess is None:
-        # Initial force estimate from measured resultant.
         f0 = abs(float(np.sum(measured_ft[:, 2])))
         f0 = np.clip(f0, 1.0, FORCE_MAX)
 
-        # Initial position estimate from Fz-weighted centroid.
         fz_abs = np.abs(measured_ft[:, 2])
+
         if np.sum(fz_abs) > 1e-12:
             xy0 = np.sum(SENSORS[:, :2] * fz_abs[:, None], axis=0) / np.sum(fz_abs)
         else:
             xy0 = np.array([0.0, 0.0])
 
         x0 = np.array([xy0[0], xy0[1], f0], dtype=float)
+
+        lb = np.array([-PLATE_HALF, -PLATE_HALF, FORCE_MIN], dtype=float)
+        ub = np.array([ PLATE_HALF,  PLATE_HALF, FORCE_MAX], dtype=float)
+
     else:
         x0 = prev_guess.copy()
 
-    lb = np.array([-PLATE_HALF, -PLATE_HALF, FORCE_MIN], dtype=float)
-    ub = np.array([ PLATE_HALF,  PLATE_HALF, FORCE_MAX], dtype=float)
+        lb = np.array([
+            max(-PLATE_HALF, prev_guess[0] - MAX_XY_STEP_M),
+            max(-PLATE_HALF, prev_guess[1] - MAX_XY_STEP_M),
+            FORCE_MIN,
+        ], dtype=float)
+
+        ub = np.array([
+            min( PLATE_HALF, prev_guess[0] + MAX_XY_STEP_M),
+            min( PLATE_HALF, prev_guess[1] + MAX_XY_STEP_M),
+            FORCE_MAX,
+        ], dtype=float)
+
+        x0 = np.clip(x0, lb, ub)
 
     result = least_squares(
         residual,
         x0=x0,
         bounds=(lb, ub),
-        args=(measured_ft,),
+        args=(measured_ft, prev_guess),
         max_nfev=80,
         xtol=1e-8,
         ftol=1e-8,
@@ -192,6 +229,22 @@ def estimate_one_sample(group, prev_guess=None):
 
     return result.x, result.cost, result.success
 
+def estimate_force_given_xy(measured_ft, x, y):
+    contact = np.array([x, y, 0.0], dtype=float)
+
+    unit_force = np.array([0.0, 0.0, -1.0], dtype=float)
+    basis_ft = compute_virtual_ft_no_noise(contact, SENSORS, unit_force)
+
+    a = basis_ft.reshape(-1)
+    b = measured_ft.reshape(-1)
+
+    denom = np.dot(a, a)
+
+    if denom < 1e-12:
+        return 0.0
+
+    force_est = np.dot(a, b) / denom
+    return float(np.clip(force_est, FORCE_MIN, FORCE_MAX))
 
 # =====================================================
 # Plotting
