@@ -10,9 +10,9 @@ from scipy.optimize import least_squares
 # =====================================================
 # Paths
 # =====================================================
-IN_CSV = "./random_line_push_waypoints/82093048/mujoco_random_line_results/mujoco_random_line_ft.csv"
+IN_CSV = "./random_line_push_waypoints/3623925320/mujoco_random_line_results/mujoco_random_line_ft.csv"
 
-OUT_DIR = Path("./random_line_push_waypoints/82093048/estimated_contact_force_results")
+OUT_DIR = Path("./random_line_push_waypoints/3623925320/estimated_contact_force_results")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 OUT_CSV = OUT_DIR / "estimated_contact_force.csv"
