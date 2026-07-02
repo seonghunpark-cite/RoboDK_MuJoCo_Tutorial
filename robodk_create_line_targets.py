@@ -17,8 +17,8 @@ FRAME_NAME = "PlateFrame"
 # Orientation reference
 SEED_NAME = "SeedPose"
 
-IN_CSV = "./random_line_push_waypoints/3661073676/random_line_waypoints.csv"
-OUT_CSV = "./random_line_push_waypoints/3661073676/random_line_robodk_joints.csv"
+IN_CSV = "./random_line_push_waypoints/82093048/random_line_waypoints.csv"
+OUT_CSV = "./random_line_push_waypoints/82093048/random_line_robodk_joints.csv"
 
 TARGET_PREFIX = "Line_T"
 PROGRAM_NAME = "Random_Line_Push"
