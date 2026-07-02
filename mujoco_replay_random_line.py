@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 # Paths / settings
 # =====================================================
 MODEL_PATH = "./assets/fairino_description/urdf/fairino5_v6_converted_plate.xml"
-CSV_PATH = "./random_line_push_waypoints/3666223592/random_line_robodk_joints.csv"
-OUT_DIR = Path("./random_line_push_waypoints/3666223592/mujoco_random_line_results")
+CSV_PATH = "./random_line_push_waypoints/3661073676/random_line_robodk_joints.csv"
+OUT_DIR = Path("./random_line_push_waypoints/3661073676/mujoco_random_line_results")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 OUT_CSV = OUT_DIR / "mujoco_random_line_ft.csv"

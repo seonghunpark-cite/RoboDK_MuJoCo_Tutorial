@@ -16,11 +16,16 @@ DT = 1.0 / SAMPLE_HZ
 
 PLATE_HALF = 0.150  # m, 300 x 300 mm plate
 
-FORCE_MIN = 10.0
+FORCE_MIN = 0.0
 FORCE_MAX = 30.0
 
 DURATION_MIN = 1.0
 DURATION_MAX = 5.0
+
+# OU force fluctuation model
+OU_THETA = 2.5          # target force로 되돌아가는 강도
+OU_SIGMA = 2.5          # 힘 흔들림 크기 [N]
+OU_INITIAL_STD = 1.0    # 시작 힘의 랜덤 편차 [N]
 
 
 # =====================================================
@@ -34,9 +39,31 @@ def random_point(rng):
     ], dtype=float)
 
 
-def force_profile(t, duration, target_force):
-    # No ramp. Constant force during the whole line push.
-    return target_force
+def generate_ou_force_profile(target_force, n_samples, dt, rng):
+    """
+    시작부터 끝까지 힘이 0이 되지 않는 OU Process force profile.
+    target_force 주변에서 자연스럽게 흔들림.
+    """
+    forces = np.zeros(n_samples, dtype=float)
+
+    forces[0] = target_force + rng.normal(0.0, OU_INITIAL_STD)
+    forces[0] = np.clip(forces[0], FORCE_MIN, FORCE_MAX)
+    while forces[0] < 1e-5 :
+        forces[0] = target_force + rng.normal(0.0, OU_INITIAL_STD)
+        forces[0] = np.clip(forces[0], FORCE_MIN, FORCE_MAX)
+        
+    for k in range(1, n_samples):
+        prev = forces[k - 1]
+
+        dF = (
+            OU_THETA * (target_force - prev) * dt
+            + OU_SIGMA * np.sqrt(dt) * rng.normal()
+        )
+
+        forces[k] = prev + dF
+        forces[k] = np.clip(forces[k], FORCE_MIN, FORCE_MAX)
+
+    return forces
 
 
 # =====================================================
@@ -48,7 +75,6 @@ def main():
 
     print(f"Random seed = {seed}")
 
-    # Create seed-specific output folder
     OUT_DIR = Path("./random_line_push_waypoints") / str(seed)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -68,6 +94,13 @@ def main():
         n_samples = int(math.ceil(duration / DT)) + 1
         times = np.linspace(0.0, duration, n_samples)
 
+        forces = generate_ou_force_profile(
+            target_force=force_target,
+            n_samples=n_samples,
+            dt=DT,
+            rng=rng,
+        )
+
         meta_rows.append({
             "seed": seed,
             "trial": trial_idx,
@@ -76,17 +109,25 @@ def main():
             "x1_m": p1[0],
             "y1_m": p1[1],
             "force_target_N": force_target,
+            "force_mean_N": float(np.mean(forces)),
+            "force_std_N": float(np.std(forces)),
+            "force_min_N": float(np.min(forces)),
+            "force_max_N": float(np.max(forces)),
             "duration_s": duration,
             "sample_hz": SAMPLE_HZ,
             "dt_s": DT,
             "samples": n_samples,
+            "ou_theta": OU_THETA,
+            "ou_sigma": OU_SIGMA,
+            "ou_initial_std": OU_INITIAL_STD,
         })
 
         print(
             f"Trial {trial_idx:02d}: "
             f"({p0[0]*1000:.1f}, {p0[1]*1000:.1f}) mm -> "
             f"({p1[0]*1000:.1f}, {p1[1]*1000:.1f}) mm | "
-            f"F={force_target:.2f} N | "
+            f"Ftarget={force_target:.2f} N | "
+            f"Fmean={np.mean(forces):.2f} N | "
             f"T={duration:.2f} s | "
             f"samples={n_samples}"
         )
@@ -95,11 +136,7 @@ def main():
             u = 0.0 if duration <= 1e-12 else t / duration
             p = (1.0 - u) * p0 + u * p1
 
-            current_force = force_profile(
-                t=t,
-                duration=duration,
-                target_force=force_target,
-            )
+            current_force = forces[sample_idx]
 
             target_name = f"Line_T{trial_idx:02d}_{sample_idx:04d}"
 
