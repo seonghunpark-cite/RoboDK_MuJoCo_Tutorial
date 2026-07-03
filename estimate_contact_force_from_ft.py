@@ -5,19 +5,59 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import least_squares
-
+import json
 
 # =====================================================
 # Paths
 # =====================================================
-IN_CSV = "./random_line_push_waypoints/3623925320/mujoco_random_line_results/mujoco_random_line_ft.csv"
+SEED = "AUTO_LATEST"
+BASE_DIR = Path("./random_line_push_waypoints")
 
-OUT_DIR = Path("./random_line_push_waypoints/3623925320/estimated_contact_force_results")
+# If SEED == "AUTO_LATEST", use latest seed folder
+# Otherwise use BASE_DIR / SEED
+INPUT_CSV_NAME = "mujoco_random_line_results/mujoco_random_line_ft.csv"
+OUT_CSV_NAME = "estimated_contact_force.csv"
+PARAM_JSON_NAME = "calibrated_ft_params.json"
+
+# =====================================================
+# Helper functions
+# =====================================================
+def find_experiment_dir():
+    if SEED != "AUTO_LATEST":
+        return BASE_DIR / str(SEED)
+
+    seed_dirs = [
+        p for p in BASE_DIR.iterdir()
+        if p.is_dir() and p.name.isdigit()
+    ]
+
+    if not seed_dirs:
+        raise RuntimeError(f"No seed folders found in {BASE_DIR}")
+
+    return max(seed_dirs, key=lambda p: p.stat().st_mtime)
+
+exp_dir = find_experiment_dir()
+IN_CSV = exp_dir / INPUT_CSV_NAME
+OUT_DIR = Path(exp_dir / "estimated_contact_force_results")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
+OUT_CSV = OUT_DIR / OUT_CSV_NAME
+PARAM_JSON = exp_dir / PARAM_JSON_NAME
 
-OUT_CSV = OUT_DIR / "estimated_contact_force.csv"
+with open(PARAM_JSON, "r", encoding="utf-8") as f:
+    calib = json.load(f)
 
+GAUSSIAN_SIGMA = calib["parameters"]["gaussian_sigma_m"]
+TRANSMISSION_GAIN = calib["parameters"]["transmission_gain"]
 
+SENSOR_GAIN = np.array([
+    calib["parameters"]["sensor_gain"]["FT1"],
+    calib["parameters"]["sensor_gain"]["FT2"],
+    calib["parameters"]["sensor_gain"]["FT3"],
+    calib["parameters"]["sensor_gain"]["FT4"],
+    calib["parameters"]["sensor_gain"]["FT5"],
+], dtype=float)
+
+PARAM_JSON_NAME = "calibrated_ft_params.json"
 # =====================================================
 # Plate / sensor settings
 # =====================================================
@@ -25,12 +65,8 @@ PLATE_HALF = 0.150
 PLATE_THICKNESS = 0.01
 SENSOR_OFFSET = 0.093
 
-GAUSSIAN_SIGMA = 0.08
 CONTACT_PATCH_RADIUS = 0.005
 CONTACT_PATCH_POINTS = 16
-TRANSMISSION_GAIN = 0.55
-
-SENSOR_GAIN = np.array([1.00, 1.00, 1.00, 1.00, 1.00], dtype=float)
 
 FORCE_MIN = 0.0
 FORCE_MAX = 35.0
@@ -39,6 +75,8 @@ MIN_VALID_FZ_SUM_N = 0.05
 PRIOR_XY_WEIGHT = 5.0
 PRIOR_FORCE_WEIGHT = 0.0
 MAX_XY_STEP_M = 0.100
+
+
 
 # =====================================================
 # Sensor layout

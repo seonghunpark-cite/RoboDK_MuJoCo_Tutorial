@@ -1,0 +1,45 @@
+{
+    "model": "gaussian_global_transmission",
+    "source_csv": "random_line_push_waypoints\\1130274888\\mujoco_random_line_results\\mujoco_random_line_ft.csv",
+    "calibration_samples": 1637,
+    "parameters": {
+        "gaussian_sigma_m": 0.07999980994459253,
+        "transmission_gain": 0.5500005293203261,
+        "sensor_gain": {
+            "FT1": 1.0000027531150417,
+            "FT2": 1.0000098000909596,
+            "FT3": 1.000001031073285,
+            "FT4": 0.9999942968119129,
+            "FT5": 0.999998995645149
+        }
+    },
+    "settings": {
+        "sensor_offset_m": 0.093,
+        "plate_thickness_m": 0.01,
+        "contact_patch_radius_m": 0.005,
+        "contact_patch_points": 16,
+        "min_true_force_N": 0.2,
+        "torque_res_scale": 50.0,
+        "sigma_bounds_m": [
+            0.02,
+            0.2
+        ],
+        "transmission_gain_bounds": [
+            0.01,
+            5.0
+        ],
+        "sensor_gain_bounds": [
+            0.5,
+            1.5
+        ]
+    },
+    "fit_quality": {
+        "optimizer_cost": 0.32053580358717954,
+        "optimizer_success": true,
+        "optimizer_message": "Both `ftol` and `xtol` termination conditions are satisfied.",
+        "mean_force_rmse_N": 0.004928852559350419,
+        "mean_torque_rmse_Nm": 1.9742712585070962e-05,
+        "mean_measured_force_sum_N": 6.632175885905227,
+        "mean_predicted_force_sum_N": 6.631840105448708
+    }
+}

@@ -5,6 +5,7 @@ import csv
 import math
 import os
 import time
+from pathlib import Path
 
 
 # =====================================================
@@ -17,8 +18,13 @@ FRAME_NAME = "PlateFrame"
 # Orientation reference
 SEED_NAME = "SeedPose"
 
-IN_CSV = "./random_line_push_waypoints/3623925320/random_line_waypoints.csv"
-OUT_CSV = "./random_line_push_waypoints/3623925320/random_line_robodk_joints.csv"
+SEED = "AUTO_LATEST"
+BASE_DIR = Path("./random_line_push_waypoints")
+
+# If SEED == "AUTO_LATEST", use latest seed folder
+# Otherwise use BASE_DIR / SEED
+INPUT_CSV_NAME = "random_line_waypoints.csv"
+OUT_CSV_NAME = "random_line_robodk_joints.csv"
 
 TARGET_PREFIX = "Line_T"
 PROGRAM_NAME = "Random_Line_Push"
@@ -32,6 +38,20 @@ CREATE_PROGRAM = False
 # =====================================================
 # Helpers
 # =====================================================
+def find_experiment_dir():
+    if SEED != "AUTO_LATEST":
+        return BASE_DIR / str(SEED)
+
+    seed_dirs = [
+        p for p in BASE_DIR.iterdir()
+        if p.is_dir() and p.name.isdigit()
+    ]
+
+    if not seed_dirs:
+        raise RuntimeError(f"No seed folders found in {BASE_DIR}")
+
+    return max(seed_dirs, key=lambda p: p.stat().st_mtime)
+
 def pose_to_R(pose):
     return [
         [pose[0, 0], pose[0, 1], pose[0, 2]],
@@ -69,7 +89,13 @@ def delete_old_items(RDK):
 # =====================================================
 # Connect
 # =====================================================
+exp_dir = find_experiment_dir()
+IN_CSV = exp_dir / INPUT_CSV_NAME
+OUT_CSV = exp_dir / OUT_CSV_NAME
+
+RDK_PATH = "./RoboDK/plane_optimization.rdk"
 RDK = Robolink()
+# RDK.AddFile(RDK_PATH) # 무료에서는 안됨
 
 robot = RDK.Item(ROBOT_NAME, ITEM_TYPE_ROBOT)
 tool = RDK.Item(TOOL_NAME, ITEM_TYPE_TOOL)

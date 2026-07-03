@@ -14,12 +14,34 @@ import matplotlib.pyplot as plt
 # Paths / settings
 # =====================================================
 MODEL_PATH = "./assets/fairino_description/urdf/fairino5_v6_converted_plate.xml"
-CSV_PATH = "./random_line_push_waypoints/3623925320/random_line_robodk_joints.csv"
-OUT_DIR = Path("./random_line_push_waypoints/3623925320/mujoco_random_line_results")
+
+SEED = "AUTO_LATEST"
+BASE_DIR = Path("./random_line_push_waypoints")
+
+# If SEED == "AUTO_LATEST", use latest seed folder
+# Otherwise use BASE_DIR / SEED
+INPUT_CSV_NAME = "random_line_robodk_joints.csv"
+OUT_CSV_NAME = "mujoco_random_line_ft.csv"
+
+def find_experiment_dir():
+    if SEED != "AUTO_LATEST":
+        return BASE_DIR / str(SEED)
+
+    seed_dirs = [
+        p for p in BASE_DIR.iterdir()
+        if p.is_dir() and p.name.isdigit()
+    ]
+
+    if not seed_dirs:
+        raise RuntimeError(f"No seed folders found in {BASE_DIR}")
+
+    return max(seed_dirs, key=lambda p: p.stat().st_mtime)
+
+exp_dir = find_experiment_dir()
+CSV_PATH = exp_dir / INPUT_CSV_NAME
+OUT_DIR = Path(exp_dir / "mujoco_random_line_results")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-
-OUT_CSV = OUT_DIR / "mujoco_random_line_ft.csv"
-
+OUT_CSV = OUT_DIR / OUT_CSV_NAME
 
 TARGET_HOLD_SEC = 0.02   # 50 Hz
 TRIAL_PAUSE_SEC = 0.5
